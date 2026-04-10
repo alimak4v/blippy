@@ -17,9 +17,9 @@
 
 ## Участники и планы разработки
 
-### Алексей Синицын - Основа - Core + бизнес-логика (Библиотека CoreBluetooth (взята с открытых источников Bitchat) )
+### Алексей Синицын - Основа - Core + бизнес-логика 
 <details>
-<summary><strong>Модули:</strong> <code>network/</code></summary>
+<summary><strong>Модули:</strong>,<code>pydantic, CoreBluetooth (взята с открытых источников Bitchat)</code></summary>
 
 #### Итерация 1
 - [ ] Разработка классов Wallet, Transaction.
@@ -31,9 +31,9 @@
 - [ ] Интеграция разработки MainWindow в интерфейс PyQt6
 </details>
 
-### Борис Осин - Основа - Bluetooth / Network (Библиотека bleak, asyncio)
+### Борис Осин - Основа - Bluetooth / Network 
 <details>
-<summary><strong>Модули:</strong> <code>network/</code></summary>
+<summary><strong>Модули:</strong> <code> bleak, asyncio </code></summary>
 
 #### Итерация 1 
 - [ ] Реализация парсинга юзеров рядом (в одной сети)
@@ -45,9 +45,9 @@
 - [ ] Окно с уведомлением подтверждения или отказа операции от получателя, внедрение в интерфейс через PyQt6.
 </details>
 
-### Матвей Вербицкий - Продва - Storage / БД (Библиотека: sqlite3, typing)
+### Матвей Вербицкий - Продва - Storage / БД 
 <details>
-<summary><strong>Библиотеки:</strong> sqlite3, typing, keyring <code>storage/</code></summary>
+<summary><strong>Библиотеки:</strong><code> sqlite3, typing, keyring </code></summary>
 
 #### Итерация 1 
 - [ ] Логирование всех операций в консоль.
