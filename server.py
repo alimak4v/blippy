@@ -24,18 +24,14 @@ class WalletNode:
         )
         
         char._write_gatt = self.on_write
-        
         service.add_characteristic(char)
         services.add_service(service)
-        
         self.server = BleakServer(name, services)
         await self.server.start()
 
     async def on_write(self, client, data):
         print(f"Получены данные от {client.address}")
-
         parsed_data = unpack_transaction(data)
-        
         if self.callback:
             await self.callback(parsed_data)
 

@@ -11,9 +11,7 @@ async def send_transaction(target_address, sender, reciever, amount):
     try:
         await client.connect(timeout=10.0)
         print("Подключено!")
-
         data = pack_transaction(sender, reciever, amount)
-
         await client.write_gatt_char(CHAR_UUID, data, response=True)
         print("Данные отправлены!")
         return True

@@ -66,7 +66,6 @@ class BankNode:
 
         self.state.balance += amount
 
-        from models import Tx
         new_tx = Tx(sender=sender, to=self.state.address, amount=amount)
         self.state.history.append(new_tx)
 

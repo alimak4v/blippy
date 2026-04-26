@@ -2,13 +2,11 @@ import json
 
 def pack_transaction(sender, to, amount):
     """Упаковывает данные в байты для отправки"""
-    
     data = {
         "sender": sender,
         "receiver": to,
         "amount": amount
     }
-    
     json_str = json.dumps(data)
     return json_str.encode('utf-8')
 
