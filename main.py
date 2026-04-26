@@ -2,6 +2,9 @@ import sys
 import asyncio
 from manager import BankNode
 from models import State
+from scanner import find_nearby_users
+from transfer import send_transaction
+from server import WalletNode
 
 async def main():
     node = BankNode()
@@ -18,21 +21,55 @@ async def main():
         print(e)
         sys.exit()
 
+    print("Запуск Bluetooth-сервера")
+    server = WalletNode(node.receive_payment)
+    await server.start(node.state.address)
+
     while True:
         print(f"\nКошелек: {node.state.address}\nБаланс: {node.state.balance} Ð")
-        print("1 - Отправить Ð\n2 - История\n3 - Выход")
+        print("1 - Отправить Ð\n2 - История\n3 - Выход\n4 - Поиск ближайших пользователей")
         choice = input(">> ")
 
         if choice == "1":
-            target = input("Адрес получателя: ")
+            print("Поиск получателей рядом...")
+            users = await find_nearby_users()
+            
+            if not users:
+                print("Никого не найдено.")
+                continue
+            
+            print("\nВыберите получателя:")
+            for i, user in enumerate(users, 1):
+                print(f"  {i}. {user['name']} (сигнал: {user['rssi']})")
+            
             try:
-                amt = float(input("Сумма: "))
-                if await node.make_tx(target, amt):
-                    print("Транзакций осуществлена (Борис, реализуйте это)")
+                idx = int(input("Номер: ")) - 1
+                if idx < 0 or idx >= len(users):
+                    print("Неверный номер")
+                    continue
+                
+                target = users[idx]
+                amount = float(input("Сумма: "))
+                
+                print(f"Отправка {amount} Ð на {target['name']}...")
+                
+                success = await send_transaction(
+                    target['address'],
+                    node.state.address,
+                    target['name'],
+                    amount
+                )
+                
+                if success:
+                    await node.make_tx(target['address'], amount)
+                    print("Транзакция завершена!")
                 else:
-                    print("Ошибка: недостаточно средств.")
-            except:
+                    print("Ошибка отправки.")
+                    
+            except ValueError:
                 print("Ошибка ввода.")
+            except Exception as e:
+                print(f"Ошибка: {e}")
 
         elif choice == "2":
             if not node.state.history:
@@ -42,8 +79,20 @@ async def main():
 
         elif choice == "3":
             await node.save()
+            await server.stop()
             print("Данные сохранены. До свидания!")
             break
+        
+        elif choice == "4":
+            users = await find_nearby_users()
+            
+            if not users:
+                print("По близости нет ни одного пользователя.")
+            else:
+                print(f"Найдено пользователей: {len(users)}")
+                for user in users:
+                    print(f"{user['name']} (Сигнал: {user['rssi']})")
+
 
 
 if __name__ == "__main__":

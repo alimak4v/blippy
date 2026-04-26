@@ -52,3 +52,22 @@ class BankNode:
         await self.save()
         print(f"[LOG] Транзакция на {amount} DOD сохранена в историю БД")
         return True
+    
+    async def receive_payment(self, tx_data):
+        """ Обработка входящей транзакции """
+        if not tx_data:
+            print("Получены битые данные.")
+            return
+
+        sender = tx_data.get("sender", "Unknown")
+        amount = tx_data.get("amount", 0)
+
+        print(f"Пришли деньги: {amount} Ð от {sender}")
+
+        self.state.balance += amount
+
+        from models import Tx
+        new_tx = Tx(sender=sender, to=self.state.address, amount=amount)
+        self.state.history.append(new_tx)
+
+        await self.save()
