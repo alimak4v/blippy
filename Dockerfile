@@ -11,12 +11,13 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install pybind11
 
 COPY . .
 
 RUN g++ -O3 -Wall -shared -std=c++11 -fPIC \
     $(python3 -m pybind11 --includes) \
-    blippy/secure_codex.cpp \
+    secure_codex.cpp \
     -o secure_codex$(python3-config --extension-suffix)
 
 CMD ["python", "main.py"]

@@ -1,5 +1,7 @@
 aiohttp
 aiosqlite
+bleak
+bless
 fastapi
 uvicorn
 pydantic
