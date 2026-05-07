@@ -1,12 +1,8 @@
 import asyncio
-from uuid import UUID
-from bleak import BleakServer
-from protocol import unpack_transaction
-from bleak.backends.service import BleakGATTServiceCollection
-from bleak.backends.characteristic import BleakGATTCharacteristic
+from bless import BlessServer, GATTCharacteristicProperties, GATTAttributePermissions
 
-SERVICE_UUID = UUID("A0B1C2D3-E4F5-46A7-B8C9-D0E1F2A3B4C5")
-CHAR_UUID = UUID("1A2B3C4D-5E6F-47A8-B9C0-D1E2F3A4B5C6")
+SERVICE_UUID = "A0B1C2D3-E4F5-46A7-B8C9-D0E1F2A3B4C5"
+CHAR_UUID = "1A2B3C4D-5E6F-47A8-B9C0-D1E2F3A4B5C6"
 
 class WalletNode:
     def __init__(self, transaction_callback):
@@ -14,27 +10,45 @@ class WalletNode:
         self.server = None
 
     async def start(self, name):
-        services = BleakGATTServiceCollection()
-        service = BleakGATTService(SERVICE_UUID)
+        self.server = BlessServer(name=name)
         
-        char = BleakGATTCharacteristic(
-            CHAR_UUID,
-            ["write"],
-            service_uuid=SERVICE_UUID
+        await self.server.add_new_service(SERVICE_UUID)
+        
+        properties = (
+            GATTCharacteristicProperties.read |
+            GATTCharacteristicProperties.write |
+            GATTCharacteristicProperties.write_without_response
         )
         
-        char._write_gatt = self.on_write
-        service.add_characteristic(char)
-        services.add_service(service)
-        self.server = BleakServer(name, services)
+        permissions = [
+            GATTAttributePermissions.readable,
+            GATTAttributePermissions.writeable
+        ]
+        
+        await self.server.add_new_characteristic(
+            SERVICE_UUID,
+            CHAR_UUID,
+            properties,
+            None,
+            permissions
+        )
+        
+        self.server.write_request_func = self.on_write
+        
         await self.server.start()
 
-    async def on_write(self, client, data):
-        print(f"Получены данные от {client.address}")
-        parsed_data = unpack_transaction(data)
+    def on_write(self, characteristic, value):
+        """Вызывается при получении байтов по Bluetooth"""
+        print(f"Получены данные транзакции...")
         if self.callback:
-            await self.callback(parsed_data)
+            from protocol import unpack_transaction
+            try:
+                parsed_data = unpack_transaction(value)
+                asyncio.create_task(self.callback(parsed_data))
+            except Exception as e:
+                print(f"Ошибка обработки данных: {e}")
 
     async def stop(self):
+        """Остановка сервера"""
         if self.server:
             await self.server.stop()
