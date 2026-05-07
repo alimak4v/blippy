@@ -1,0 +1,9 @@
+aiohttp
+aiosqlite
+fastapi
+uvicorn
+pydantic
+pycryptodome
+requests
+pytest
+pytest-asyncio
