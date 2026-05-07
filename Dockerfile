@@ -1,14 +1,22 @@
 FROM python:3.11-slim
 
-WORKDIR /app
 RUN apt-get update && apt-get install -y \
     g++ \
-    gcc \
     build-essential \
+    python3-dev \
+    libdbus-1-dev \
     && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
-RUN g++ -shared -o secure_codex.so -fPIC secure_codex.cpp
+
+RUN g++ -O3 -Wall -shared -std=c++11 -fPIC \
+    $(python3 -m pybind11 --includes) \
+    blippy/secure_codex.cpp \
+    -o secure_codex$(python3-config --extension-suffix)
+
 CMD ["python", "main.py"]
