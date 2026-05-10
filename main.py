@@ -1,102 +1,342 @@
-import sys
 import asyncio
+import threading
+from typing import Any
+
+import PySimpleGUI as sg
+
 from manager import BankNode
 from models import State
 from scanner import find_nearby_users
-from transfer import send_transaction
 from server import WalletNode
+from transfer import send_transaction
 
-async def main():
-    node = BankNode()
 
-    try:
-        if not await node.startup():
-            name = input("Введите ник: ")
-            for s in name:
-                if (s < 'a' or s > 'z') and (s < "A" or s > "Z"):
-                    raise Exception("В нике могут быть только строчнве и заглавные буквы")
-            node.state = State(name=name, address="node-"+name, balance=100.0)
-            await node.save()
-    except Exception as e:
-        print(e)
-        sys.exit()
+def _valid_nickname(name: str) -> bool:
+    if not name:
+        return False
+    for ch in name:
+        if (ch < "a" or ch > "z") and (ch < "A" or ch > "Z"):
+            return False
+    return True
 
-    print("Запуск Bluetooth-сервера")
-    server = WalletNode(node.receive_payment)
-    await server.start(node.state.address)
 
-    while True:
-        print(f"\nКошелек: {node.state.address}\nБаланс: {node.state.balance} Ð")
-        print("1 - Отправить Ð\n2 - История\n3 - Выход\n4 - Поиск ближайших пользователей")
-        choice = input(">> ")
+def _make_payment_callback(window: sg.Window, node: BankNode):
+    async def on_payment(tx_data: dict[str, Any] | None):
+        await node.receive_payment(tx_data)
+        window.write_event_value("-BALANCE_CHANGED-", "")
 
-        if choice == "1":
-            print("Поиск получателей рядом...")
-            users = await find_nearby_users()
-            
-            if not users:
-                print("Никого не найдено.")
-                continue
-            
-            print("\nВыберите получателя:")
-            for i, user in enumerate(users, 1):
-                print(f"  {i}. {user['name']} (сигнал: {user['rssi']})")
-            
-            try:
-                idx = int(input("Номер: ")) - 1
-                if idx < 0 or idx >= len(users):
-                    print("Неверный номер")
-                    continue
-                
-                target = users[idx]
-                amount = float(input("Сумма: "))
-                
-                print(f"Отправка {amount} Ð на {target['name']}...")
-                
-                success = await send_transaction(
-                    target['address'],
-                    node.state.address,
-                    target['name'],
-                    amount
+    return on_payment
+
+
+class BlippyApp:
+    def __init__(self) -> None:
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self.node: BankNode | None = None
+        self.server: WalletNode | None = None
+        self.name_future: asyncio.Future | None = None
+        self.nearby_users: list[dict[str, Any]] = []
+        self.shutdown = asyncio.Event()
+        self.window: sg.Window | None = None
+
+    def run(self) -> None:
+        sg.theme("DarkGrey5")
+        self.window = sg.Window(
+            "Blippy — кошелёк",
+            self._layout(),
+            finalize=True,
+            resizable=True,
+        )
+        self._set_actions_enabled(False)
+        self._set_status("Инициализация…")
+        threading.Thread(target=self._async_thread_main, daemon=True).start()
+        self._gui_loop()
+        if self.window:
+            self.window.close()
+
+    def _layout(self) -> list[list[sg.Element]]:
+        return [
+            [sg.Text("", key="-STATUS-", size=(55, 1))],
+            [
+                sg.Text("Адрес:", size=(8, 1)),
+                sg.Text("", key="-ADDR-", size=(45, 1)),
+            ],
+            [
+                sg.Text("Баланс:", size=(8, 1)),
+                sg.Text("", key="-BAL-", size=(45, 1)),
+            ],
+            [sg.HorizontalSeparator()],
+            [
+                sg.Text("Рядом:"),
+                sg.Button("Найти получателей", key="-SCAN-"),
+            ],
+            [
+                sg.Listbox(
+                    values=[],
+                    key="-USERS-",
+                    size=(60, 8),
+                    enable_events=True,
                 )
-                
-                if success:
-                    await node.make_tx(target['address'], amount)
-                    print("Транзакция завершена!")
+            ],
+            [
+                sg.Text("Сумма (Ð):"),
+                sg.Input(key="-AMOUNT-", size=(12, 1)),
+                sg.Button("Перевести", key="-SEND-"),
+            ],
+            [sg.HorizontalSeparator()],
+            [
+                sg.Button("История", key="-HIST-"),
+                sg.Push(),
+                sg.Button("Выход", key="-EXIT-"),
+            ],
+        ]
+
+    def _set_status(self, text: str) -> None:
+        if self.window:
+            self.window["-STATUS-"].update(text)
+
+    def _set_actions_enabled(self, enabled: bool) -> None:
+        if not self.window:
+            return
+        for key in ("-SCAN-", "-SEND-", "-HIST-", "-EXIT-", "-USERS-", "-AMOUNT-"):
+            self.window[key].update(disabled=not enabled)
+
+    def _refresh_wallet_ui(self) -> None:
+        if not self.window or not self.node or not self.node.state:
+            return
+        st = self.node.state
+        self.window["-ADDR-"].update(st.address)
+        self.window["-BAL-"].update(f"{st.balance} Ð")
+
+    def _gui_loop(self) -> None:
+        assert self.window is not None
+        while True:
+            event, values = self.window.read()
+            if event in (sg.WIN_CLOSED, None):
+                self._request_shutdown_and_wait()
+                break
+            if event == "-ASK_NAME-":
+                self._on_ask_name()
+                continue
+            if event == "-READY-":
+                self._set_status("Готово. Bluetooth-сервер запущен.")
+                self._set_actions_enabled(True)
+                self._refresh_wallet_ui()
+                continue
+            if event == "-FATAL-":
+                sg.popup_error(values.get("-FATAL-", "Неизвестная ошибка"))
+                self._request_shutdown_and_wait()
+                break
+            if event == "-BALANCE_CHANGED-":
+                self._refresh_wallet_ui()
+                continue
+            if event == "-SCAN_DONE-":
+                self._set_status("Сканирование завершено.")
+                users = self.nearby_users
+                if not users:
+                    self.window["-USERS-"].update(values=[])
+                    sg.popup_ok("Никого не найдено.", title="Поиск")
                 else:
-                    print("Ошибка отправки.")
-                    
-            except ValueError:
-                print("Ошибка ввода.")
+                    lines = [f"{u['name']}  (сигнал: {u['rssi']})" for u in users]
+                    self.window["-USERS-"].update(values=lines)
+                continue
+            if event == "-SCAN_ERR-":
+                self._set_status("Ошибка сканирования.")
+                sg.popup_error(values.get("-SCAN_ERR-", "Ошибка"))
+                continue
+            if event == "-SEND_DONE-":
+                ok = values.get("-SEND_DONE-")
+                if ok:
+                    sg.popup_ok("Транзакция завершена.", title="Перевод")
+                else:
+                    sg.popup_error("Не удалось отправить перевод.", title="Перевод")
+                self._refresh_wallet_ui()
+                continue
+            if event == "-SEND_ERR-":
+                sg.popup_error(values.get("-SEND_ERR-", "Ошибка"), title="Перевод")
+                continue
+            if event == "-SCAN-":
+                self._run_scan()
+            elif event == "-SEND-":
+                self._run_send(values)
+            elif event == "-HIST-":
+                self._show_history()
+            elif event == "-EXIT-":
+                self._request_shutdown_and_wait()
+                break
+
+    def _on_ask_name(self) -> None:
+        assert self.window is not None
+        fut = self.name_future
+        loop = self.loop
+        if fut is None or loop is None:
+            return
+        while True:
+            name = sg.popup_get_text(
+                "Новый кошелёк",
+                "Введите ник (только латинские буквы a–z, A–Z):",
+            )
+            if name is None:
+                loop.call_soon_threadsafe(fut.set_exception, SystemExit(0))
+                loop.call_soon_threadsafe(loop.stop)
+                return
+            name = name.strip()
+            if _valid_nickname(name):
+                loop.call_soon_threadsafe(fut.set_result, name)
+                return
+            sg.popup_error("В нике могут быть только строчные и заглавные буквы.")
+
+    def _run_scan(self) -> None:
+        assert self.window is not None
+        loop = self.loop
+        if loop is None:
+            return
+        self._set_status("Сканирование… подождите около 3 с.")
+
+        def worker() -> None:
+            try:
+                users = asyncio.run_coroutine_threadsafe(
+                    find_nearby_users(), loop
+                ).result(timeout=60)
+                self.nearby_users = users
+                self.window.write_event_value("-SCAN_DONE-", "")
             except Exception as e:
-                print(f"Ошибка: {e}")
+                self.window.write_event_value("-SCAN_ERR-", str(e))
 
-        elif choice == "2":
-            if not node.state.history:
-                print("История пуста.")
-            for t in node.state.history:
-                print(f"Перевод: {t.amount} -> {t.to}")
+        threading.Thread(target=worker, daemon=True).start()
 
-        elif choice == "3":
-            await node.save()
-            await server.stop()
-            print("Данные сохранены. До свидания!")
-            break
-        
-        elif choice == "4":
-            users = await find_nearby_users()
-            
-            if not users:
-                print("По близости нет ни одного пользователя.")
-            else:
-                print(f"Найдено пользователей: {len(users)}")
-                for user in users:
-                    print(f"{user['name']} (Сигнал: {user['rssi']})")
+    def _run_send(self, values: dict) -> None:
+        assert self.window is not None
+        loop = self.loop
+        node = self.node
+        if loop is None or node is None or not node.state:
+            return
+        sel = values.get("-USERS-")
+        if not sel:
+            sg.popup_error("Выберите получателя в списке.")
+            return
+        line = sel[0]
+        lines = [f"{u['name']}  (сигнал: {u['rssi']})" for u in self.nearby_users]
+        try:
+            idx = lines.index(line)
+        except ValueError:
+            sg.popup_error("Выберите получателя в списке.")
+            return
+        raw = (values.get("-AMOUNT-") or "").strip().replace(",", ".")
+        try:
+            amount = float(raw)
+        except ValueError:
+            sg.popup_error("Введите сумму числом.")
+            return
+        if amount <= 0:
+            sg.popup_error("Сумма должна быть больше нуля.")
+            return
+        target = self.nearby_users[idx]
+        self._set_status(f"Отправка {amount} Ð → {target['name']}…")
+        async def transfer() -> bool:
+            ok = await send_transaction(
+                target["address"],
+                node.state.address,
+                target["name"],
+                amount,
+            )
+            if ok:
+                await node.make_tx(target["address"], amount)
+            return ok
 
+        def worker() -> None:
+            try:
+                ok = asyncio.run_coroutine_threadsafe(transfer(), loop).result(
+                    timeout=120
+                )
+                self.window.write_event_value("-SEND_DONE-", ok)
+            except Exception as e:
+                self.window.write_event_value("-SEND_ERR-", str(e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_history(self) -> None:
+        node = self.node
+        if not node or not node.state:
+            return
+        hist = node.state.history
+        if not hist:
+            sg.popup_ok("История пуста.", title="История")
+            return
+        lines = [f"{t.amount} Ð  →  {t.to}  (от {t.sender})" for t in hist]
+        sg.popup_scrolled(
+            "\n".join(lines),
+            title="История операций",
+            size=(80, 30),
+        )
+
+    def _request_shutdown_and_wait(self) -> None:
+        loop = self.loop
+        if loop is None or loop.is_closed():
+            return
+        async def signal() -> None:
+            self.shutdown.set()
+        try:
+            asyncio.run_coroutine_threadsafe(signal(), loop).result(timeout=15)
+        except Exception:
+            loop.call_soon_threadsafe(loop.stop)
+
+    def _async_thread_main(self) -> None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self.loop = loop
+        loop.create_task(self._async_main())
+        loop.run_forever()
+
+    async def _async_main(self) -> None:
+        assert self.window is not None
+        loop = asyncio.get_running_loop()
+        node = BankNode()
+        self.node = node
+        server: WalletNode | None = None
+        try:
+            try:
+                exists = await node.startup()
+            except Exception as e:
+                self.window.write_event_value("-FATAL-", str(e))
+                return
+            if not exists:
+                fut: asyncio.Future = loop.create_future()
+                self.name_future = fut
+                self.window.write_event_value("-ASK_NAME-", "")
+                try:
+                    name = await fut
+                except SystemExit:
+                    return
+                except BaseException as e:
+                    self.window.write_event_value("-FATAL-", str(e))
+                    return
+                node.state = State(name=name, address="node-" + name, balance=100.0)
+                await node.save()
+            server = WalletNode(_make_payment_callback(self.window, node))
+            self.server = server
+            await server.start(node.state.address)
+            self.window.write_event_value("-READY-", "")
+            await self.shutdown.wait()
+        finally:
+            if server is not None:
+                try:
+                    await server.stop()
+                except Exception:
+                    pass
+            if node.state is not None:
+                try:
+                    await node.save()
+                except Exception:
+                    pass
+            loop.call_soon_threadsafe(loop.stop)
+
+
+def main() -> None:
+    try:
+        BlippyApp().run()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
+    main()

@@ -15,6 +15,8 @@ RUN pip install pybind11
 
 COPY . .
 
+RUN mkdir -p storage
+
 RUN g++ -O3 -Wall -shared -std=c++11 -fPIC \
     $(python3 -m pybind11 --includes) \
     secure_codex.cpp \
