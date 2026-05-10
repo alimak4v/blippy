@@ -46,8 +46,8 @@ class BlippyApp:
             finalize=True,
             resizable=True,
         )
-        # ошибка с disabled/enabled кнопками
-        self._set_ble_actions_enabled(False)
+        self._set_scan_ui_enabled(False)
+        self._set_transfer_ui_enabled(False)
         self.window["-HIST-"].update(disabled=True)
         self._set_status("Инициализация…")
         threading.Thread(target=self._async_thread_main, daemon=True).start()
@@ -96,10 +96,16 @@ class BlippyApp:
         if self.window:
             self.window["-STATUS-"].update(text)
 
-    def _set_ble_actions_enabled(self, enabled: bool) -> None:
+    def _set_scan_ui_enabled(self, enabled: bool) -> None:
         if not self.window:
             return
-        for key in ("-SCAN-", "-SEND-", "-USERS-", "-AMOUNT-"):
+        for key in ("-SCAN-", "-USERS-"):
+            self.window[key].update(disabled=not enabled)
+
+    def _set_transfer_ui_enabled(self, enabled: bool) -> None:
+        if not self.window:
+            return
+        for key in ("-SEND-", "-AMOUNT-"):
             self.window[key].update(disabled=not enabled)
 
     def _refresh_wallet_ui(self) -> None:
@@ -126,10 +132,11 @@ class BlippyApp:
                 self._set_status("Запуск Bluetooth-сервера…")
                 self._refresh_wallet_ui()
                 self.window["-HIST-"].update(disabled=False)
+                self._set_scan_ui_enabled(True)
                 continue
             if event == "-READY-":
                 self._set_status("Готово. Bluetooth-сервер запущен.")
-                self._set_ble_actions_enabled(True)
+                self._set_transfer_ui_enabled(True)
                 self._refresh_wallet_ui()
                 continue
             if event == "-FATAL-":
