@@ -8,5 +8,6 @@ uvicorn
 pydantic
 pycryptodome
 requests
+PySimpleGUI
 pytest
 pytest-asyncio

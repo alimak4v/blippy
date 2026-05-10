@@ -5,10 +5,14 @@ services:
     build: .
     network_mode: "host"
     privileged: true
+
+    environment:
+      - DISPLAY=${DISPLAY}
     
     volumes:
       - /var/run/dbus:/var/run/dbus
       - ./database.db:/app/database.db
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
     stdin_open: true
     tty: true
