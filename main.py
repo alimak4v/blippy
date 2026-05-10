@@ -78,7 +78,7 @@ class BlippyApp:
                 )
             ],
             [
-                sg.Text("Сумма (Ð):"),
+                sg.Text("Ð:"),
                 sg.Input(key="-AMOUNT-", size=(12, 1)),
                 sg.Button("Перевести", key="-SEND-"),
             ],
@@ -110,12 +110,19 @@ class BlippyApp:
     def _gui_loop(self) -> None:
         assert self.window is not None
         while True:
-            event, values = self.window.read()
-            if event in (sg.WIN_CLOSED, None):
-                self._request_shutdown_and_wait()
-                break
+            # зависало на инициализации в том числе здесь
+            event, values = self.window.read(timeout=100)
+            if event in (sg.TIMEOUT_KEY, sg.WIN_CLOSED, None):
+                if event in (sg.WIN_CLOSED, None):
+                    self._request_shutdown_and_wait()
+                    break
+                continue
             if event == "-ASK_NAME-":
                 self._on_ask_name()
+                continue
+            if event == "-WALLET_LOADED-":
+                self._set_status("Запуск Bluetooth-сервера…")
+                self._refresh_wallet_ui()
                 continue
             if event == "-READY-":
                 self._set_status("Готово. Bluetooth-сервер запущен.")
@@ -231,7 +238,7 @@ class BlippyApp:
             sg.popup_error("Сумма должна быть больше нуля.")
             return
         target = self.nearby_users[idx]
-        self._set_status(f"Отправка {amount} Ð → {target['name']}…")
+        self._set_status(f"{amount} Ð TO {target['name']}")
         async def transfer() -> bool:
             ok = await send_transaction(
                 target["address"],
@@ -262,7 +269,7 @@ class BlippyApp:
         if not hist:
             sg.popup_ok("История пуста.", title="История")
             return
-        lines = [f"{t.amount} Ð  →  {t.to}  (от {t.sender})" for t in hist]
+        lines = [f"{t.amount} Ð  FROM {t.sender} TO  {t.to}" for t in hist]
         sg.popup_scrolled(
             "\n".join(lines),
             title="История операций",
@@ -312,6 +319,7 @@ class BlippyApp:
                     return
                 node.state = State(name=name, address="node-" + name, balance=100.0)
                 await node.save()
+            self.window.write_event_value("-WALLET_LOADED-", "")
             server = WalletNode(_make_payment_callback(self.window, node))
             self.server = server
             await server.start(node.state.address)
