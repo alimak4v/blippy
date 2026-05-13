@@ -4,7 +4,7 @@ import secure_codex
 import logging
 from models import State, Tx
 from database import DBManager
-from security_vault import SecurityVault
+from secret_vault import SecurityVault
 
 class BankNode:
     DB1 = "storage/vault_a.bin"

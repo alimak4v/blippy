@@ -4,6 +4,7 @@ aiosqlite
 bleak
 bless
 fastapi
+keyring
 uvicorn
 pydantic
 pycryptodome
