@@ -5,6 +5,7 @@ bleak
 bless
 fastapi
 keyring
+keyrings.alt
 uvicorn
 pydantic
 pycryptodome
