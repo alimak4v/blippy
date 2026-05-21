@@ -4,11 +4,11 @@ from typing import Any
 
 import PySimpleGUI as sg
 
-from manager import BankNode
-from models import State
-from scanner import find_nearby_users
-from server import WalletNode
-from transfer import send_transaction
+from source.manager import BankNode
+from source.models import State
+from source.scanner import find_nearby_users
+from source.server import WalletNode
+from source.transfer import send_transaction
 
 
 def _valid_nickname(name: str) -> bool:

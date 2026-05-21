@@ -1,10 +1,10 @@
 import os
 import asyncio
-import secure_codex
+from source import secure_codex
 import logging
-from models import State, Tx
-from database import DBManager
-from secret_vault import SecurityVault
+from source.models import State, Tx
+from source.database import DBManager
+from source.secret_vault import SecurityVault
 
 class BankNode:
     DB1 = "storage/vault_a.bin"
