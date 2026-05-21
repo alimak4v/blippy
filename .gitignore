@@ -1,31 +1,9 @@
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-.eggs/
-dist/
-build/
-*.egg
 
-.venv/
-venv/
-ENV/
+.vscode/
 
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+database.db
+storage/
 
-.env
-.env.*
-!.env.example
-
-.idea/
-*.swp
-*.swo
 .DS_Store
-
-*.log
+Thumbs.db

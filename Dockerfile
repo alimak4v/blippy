@@ -22,7 +22,7 @@ RUN mkdir -p storage
 
 RUN g++ -O3 -Wall -shared -std=c++11 -fPIC \
     $(python3 -m pybind11 --includes) \
-    secure_codex.cpp \
-    -o secure_codex$(python3-config --extension-suffix)
+    source/secure_codex.cpp \
+    -o source/secure_codex$(python3-config --extension-suffix)
 
-CMD ["python", "main.py"]
+CMD ["python3", "source/main.py"]

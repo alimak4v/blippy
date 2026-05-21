@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   blippy:
     build: .
@@ -8,11 +6,15 @@ services:
 
     environment:
       - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - PYTHONPATH=/app
     
     volumes:
-      - /var/run/dbus:/var/run/dbus
       - ./database.db:/app/database.db
-      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./storage:/app/storage
+      - /var/run/dbus:/var/run/dbus
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - $HOME/.Xauthority:/root/.Xauthority:ro
 
     stdin_open: true
     tty: true
