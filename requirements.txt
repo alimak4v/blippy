@@ -1,11 +1,17 @@
 aiohttp
+PySimpleGUI
 aiosqlite
 bleak
 bless
 fastapi
+keyring
+keyrings.alt
 uvicorn
 pydantic
 pycryptodome
+pytest
+pytest-asyncio
 requests
+PySimpleGUI
 pytest
 pytest-asyncio

@@ -10,8 +10,16 @@ class WalletNode:
         self.server = None
 
     async def start(self, name):
-        self.server = BlessServer(name=name)
-        
+        loop = asyncio.get_running_loop()
+        # тут была бага с тем, что окно якобы зависало с "инициализация..."
+        try:
+            self.server = await asyncio.wait_for(
+                asyncio.to_thread(BlessServer, name, loop),
+                timeout=45.0,
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError("Bluetooth не отвечает.")
+
         await self.server.add_new_service(SERVICE_UUID)
         
         properties = (
@@ -44,7 +52,11 @@ class WalletNode:
             from protocol import unpack_transaction
             try:
                 parsed_data = unpack_transaction(value)
-                asyncio.create_task(self.callback(parsed_data))
+                srv_loop = getattr(self.server, "loop", None) if self.server else None
+                if srv_loop is not None:
+                    asyncio.run_coroutine_threadsafe(self.callback(parsed_data), srv_loop)
+                else:
+                    asyncio.create_task(self.callback(parsed_data))
             except Exception as e:
                 print(f"Ошибка обработки данных: {e}")
 

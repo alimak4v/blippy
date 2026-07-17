@@ -1,6 +1,7 @@
 import asyncio
 from bleak import BleakClient
-from protocol import pack_transaction
+
+from source.protocol import pack_transaction
 
 CHAR_UUID = "1A2B3C4D-5E6F-47A8-B9C0-D1E2F3A4B5C6"
 

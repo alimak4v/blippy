@@ -10,8 +10,11 @@ services:
       - /dev/bus/usb:/dev/bus/usb
     
     volumes:
-      - /var/run/dbus:/var/run/dbus
       - ./database.db:/app/database.db
+      - ./storage:/app/storage
+      - /var/run/dbus:/var/run/dbus
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - $HOME/.Xauthority:/root/.Xauthority:ro
 
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket

@@ -3,8 +3,8 @@
 
 namespace py = pybind11;
 
-const std::string KEY1 = "DB_KEY_ALPHA_2025";
-const std::string KEY2 = "DB_KEY_BRAVO_9981";
+const std::string KEY1 = "75adlmoa0uug34y6o8ao"; // сгенерировал ключи через involta.ru
+const std::string KEY2 = "nlt9vvs800pofo4goc77";
 
 std::string crypt(std::string data, std::string key) {
     std::string out = data;

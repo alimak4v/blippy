@@ -1,6 +1,7 @@
 import aiosqlite
 import logging
-from models import Tx, State
+
+from source.models import Tx, State
 
 
 logging.basicConfig(level=logging.INFO, format='[DB LOG] %(message)s')
