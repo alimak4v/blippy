@@ -1,13 +1,13 @@
+
 services:
   blippy:
     build: .
     network_mode: "host"
     privileged: true
 
-    environment:
-      - DISPLAY=${DISPLAY}
-      - QT_X11_NO_MITSHM=1
-      - PYTHONPATH=/app
+    devices:
+      - /dev/hci0:/dev/hci0
+      - /dev/bus/usb:/dev/bus/usb
     
     volumes:
       - ./database.db:/app/database.db
@@ -15,6 +15,9 @@ services:
       - /var/run/dbus:/var/run/dbus
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - $HOME/.Xauthority:/root/.Xauthority:ro
+
+    environment:
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
 
     stdin_open: true
     tty: true
