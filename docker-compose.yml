@@ -1,0 +1,20 @@
+
+services:
+  blippy:
+    build: .
+    network_mode: "host"
+    privileged: true
+
+    devices:
+      - /dev/hci0:/dev/hci0
+      - /dev/bus/usb:/dev/bus/usb
+    
+    volumes:
+      - /var/run/dbus:/var/run/dbus
+      - ./database.db:/app/database.db
+
+    environment:
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+
+    stdin_open: true
+    tty: true

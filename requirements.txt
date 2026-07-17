@@ -1,0 +1,11 @@
+aiohttp
+aiosqlite
+bleak
+bless
+fastapi
+uvicorn
+pydantic
+pycryptodome
+requests
+pytest
+pytest-asyncio
