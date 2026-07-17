@@ -178,7 +178,7 @@ These constraints make Blippy suitable for studying P2P networking, local-first 
 
 ## Authors
 
-Built by **Алексей**, **Борис Осин**, and **Матвей Вербицкий** as a collaborative educational project.
+Built by **Алексей Cиницын**, **Борис Осин**, and **Матвей Вербицкий** as a collaborative educational project.
 
 ---
 
